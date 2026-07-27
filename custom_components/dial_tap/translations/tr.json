@@ -1,0 +1,13 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Presto",
+        "description": "Zigbee buton / dial / kumanda otomasyon merkezi kurulacak. Ayarların tamamı kenar çubuğundaki \"Presto\" panelinden yapılır."
+      }
+    },
+    "abort": {
+      "already_configured": "Presto zaten kurulu."
+    }
+  }
+}

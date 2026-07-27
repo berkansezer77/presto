@@ -1,0 +1,12 @@
+{
+  "domain": "dial_tap",
+  "name": "Presto",
+  "codeowners": ["@berkansezer77"],
+  "config_flow": true,
+  "dependencies": ["http", "panel_custom", "websocket_api"],
+  "documentation": "https://github.com/berkansezer77/presto",
+  "issue_tracker": "https://github.com/berkansezer77/presto/issues",
+  "integration_type": "service",
+  "iot_class": "local_push",
+  "version": "1.0.0"
+}
