@@ -10,6 +10,7 @@ otomasyon motoruna yazılır; panel kapalıyken de çalışır.
 """
 from __future__ import annotations
 
+import json
 import logging
 import os
 
@@ -23,6 +24,53 @@ from homeassistant.helpers.storage import Store
 from .const import DOMAIN, FRONTEND_URL_BASE, FRONTEND_VERSION, PLATFORMS, SIGNAL_CONFIG
 
 _LOGGER = logging.getLogger(__name__)
+
+
+# Config .storage'a yazılır ve 30 yedeğe kopyalanabilir — abartılı boyutları reddet.
+MAX_CONFIG_BYTES = 512 * 1024
+
+
+def _validate_config(body):
+    """Panelden/dosyadan gelen yapılandırmayı kabaca doğrula.
+
+    Frontend doğrulaması bir güvenlik sınırı DEĞİLDİR; burası son savunma hattı.
+    Hata varsa açıklama metni, yoksa None döndürür.
+    """
+    if not isinstance(body, dict):
+        return "Config bir nesne (obje) olmalı."
+    try:
+        size = len(json.dumps(body))
+    except (TypeError, ValueError):
+        return "Config JSON'a çevrilemiyor."
+    if size > MAX_CONFIG_BYTES:
+        return f"Config çok büyük ({size} bayt, sınır {MAX_CONFIG_BYTES})."
+    for key, typ in (("devices", dict), ("rooms", dict), ("manual_devices", list)):
+        if key in body and not isinstance(body[key], typ):
+            return f"'{key}' alanı geçersiz tipte."
+    devices = body.get("devices")
+    if isinstance(devices, dict):
+        if len(devices) > 200:
+            return "Çok fazla cihaz."
+        for k, dev in devices.items():
+            if not isinstance(dev, dict):
+                return f"Cihaz '{k}' bir nesne olmalı."
+            modes = dev.get("modes")
+            if modes is not None and not isinstance(modes, list):
+                return f"Cihaz '{k}' modes bir liste olmalı."
+    return None
+
+
+def _admin_guard(view, request):
+    """Sadece admin kullanıcılar config/yedekleri okuyup yazabilir.
+
+    Panel, HA otomasyonlarını üretip .storage'a yazdığı için normal (admin
+    olmayan) kullanıcıya kapalı olmalı. Admin değilse 403 döndürür, yetkiliyse
+    None döndürür.
+    """
+    user = request.get("hass_user")
+    if user is None or not getattr(user, "is_admin", False):
+        return view.json_message("Admin required", status_code=403)
+    return None
 
 # Panel yapılandırması (odalar, bölümler, cihazlar, modlar) burada yaşar:
 # .storage/dial_tap_config
@@ -46,16 +94,22 @@ class DialTapConfigView(HomeAssistantView):
         self._store = store
 
     async def get(self, request):
+        if (deny := _admin_guard(self, request)) is not None:
+            return deny
         data = await self._store.async_load()
         return self.json(data or {})
 
     async def post(self, request):
+        if (deny := _admin_guard(self, request)) is not None:
+            return deny
         try:
             body = await request.json()
         except ValueError:
             return self.json_message("Invalid JSON", status_code=400)
         if not isinstance(body, dict):
             return self.json_message("Expected an object", status_code=400)
+        if (err := _validate_config(body)) is not None:
+            return self.json_message(err, status_code=400)
         await self._store.async_save(body)
         # Modlar değişmiş olabilir -> select entity'leri kendini yenilesin.
         async_dispatcher_send(self._hass, SIGNAL_CONFIG)
@@ -94,9 +148,13 @@ class DialTapBackupView(HomeAssistantView):
         return out
 
     async def get(self, request):
+        if (deny := _admin_guard(self, request)) is not None:
+            return deny
         return self.json({"items": self._ozet(await self._load())})
 
     async def post(self, request):
+        if (deny := _admin_guard(self, request)) is not None:
+            return deny
         from homeassistant.util import dt as dt_util
         try:
             body = await request.json()
@@ -143,6 +201,8 @@ class DialTapBackupView(HomeAssistantView):
             cfg = body.get("config")
             if not isinstance(cfg, dict):
                 return self.json_message("Geçersiz yedek dosyası", status_code=400)
+            if (err := _validate_config(cfg)) is not None:
+                return self.json_message(err, status_code=400)
             await self._store.async_save(cfg)
             async_dispatcher_send(self._hass, SIGNAL_CONFIG)
             return self.json({"ok": True})
@@ -180,7 +240,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 module_url=f"{FRONTEND_URL_BASE}/presto-panel-{FRONTEND_VERSION}.js",
                 sidebar_title="Presto",
                 sidebar_icon="mdi:knob",
-                require_admin=False,
+                require_admin=True,
             )
         except ValueError:
             # Zaten kayıtlı (ör. entry reload) — sorun değil.

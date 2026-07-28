@@ -81,6 +81,15 @@ async def async_setup_entry(
         if new_entities:
             async_add_entities(new_entities)
 
+        # Artık ses kullanmayan (dial'ı volume'dan çıkarılmış ya da silinmiş) cihazların
+        # takip entity'si öksüz kalmasın — "kullanılamıyor" olarak işaretle.
+        need = {
+            k for k, dev in devices.items()
+            if isinstance(dev, dict) and _needs_volume(dev)
+        }
+        for key, ent in known.items():
+            ent.set_available(key in need)
+
     await _sync()
 
     @callback
@@ -96,6 +105,7 @@ class DialTapVolume(NumberEntity, RestoreEntity):
     """Bir Tap Dial'ın hedeflediği sesin takip edilen seviyesi (%)."""
 
     _attr_should_poll = False
+    _attr_available = True
     _attr_icon = "mdi:volume-high"
     _attr_native_min_value = 0
     _attr_native_max_value = 100
@@ -133,6 +143,15 @@ class DialTapVolume(NumberEntity, RestoreEntity):
             return
         self.device_name = yeni
         self._attr_name = f"{yeni} Ses"
+        if self.hass is not None:
+            self.async_write_ha_state()
+
+    @callback
+    def set_available(self, ok: bool) -> None:
+        """Cihaz artık ses kullanmıyorsa entity'yi kullanılamaz yap (öksüz kalmasın)."""
+        if ok == self._attr_available:
+            return
+        self._attr_available = ok
         if self.hass is not None:
             self.async_write_ha_state()
 

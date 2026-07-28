@@ -3,7 +3,18 @@
    AI/bulut bagimliligi YOKTUR — her sey elle kurulur.
    Uretilen her sey HA'nin kendi otomasyon motoruna yazilir. */
 
-const el = (tag, cls, html) => {
+// GÜVENLİ VARSAYILAN: 3. argüman düz METİN olarak yazılır (textContent).
+// Böylece mod adı / cihaz adı / entity adı gibi kullanıcı verisi HTML'e enjekte
+// EDİLEMEZ (depolanmış XSS koruması). Gerçekten HTML gereken yerlerde elh() kullan.
+const el = (tag, cls, text) => {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text !== undefined) e.textContent = String(text);
+  return e;
+};
+// Yalnızca STATİK ya da esc()'lenmiş güvenilir HTML için. Kullanıcı/entity verisini
+// buraya ham geçme — önce esc()'le.
+const elh = (tag, cls, html) => {
   const e = document.createElement(tag);
   if (cls) e.className = cls;
   if (html !== undefined) e.innerHTML = html;
@@ -1297,7 +1308,7 @@ class DialTapPanel extends HTMLElement {
 
     const head = el("div", "stage-h");
     head.appendChild(el("div", "room-title", "Genel"));
-    head.appendChild(el("div", "room-meta", "Odalar-arası otomasyonlar"));
+    head.appendChild(elh("div", "room-meta", "Odalar-arası otomasyonlar"));
     stage.appendChild(head);
 
     // odalar-arası seçim kutusu
@@ -1308,7 +1319,7 @@ class DialTapPanel extends HTMLElement {
     box.appendChild(bh);
     box.appendChild(el("div", "gb-sub", "Farklı odalardan cihaz seç; hepsi burada toplanır, sonra aşağıya otomasyonu yaz. (Cihazlar odaların içinde durur, burada tekrar listelenmez.)"));
     const selBox = el("div", "gb-sel");
-    if (!this._sel.size) selBox.appendChild(el("div", "gb-empty", "Henüz cihaz seçilmedi."));
+    if (!this._sel.size) selBox.appendChild(elh("div", "gb-empty", "Henüz cihaz seçilmedi."));
     for (const eid of this._sel) {
       const c = el("div", "dev sel");
       c.appendChild(icon(this._entIcon(eid)));
@@ -1354,7 +1365,7 @@ class DialTapPanel extends HTMLElement {
         }
         asec.appendChild(ah);
         for (const a of list) asec.appendChild(this._autoRow(room, a, rc));
-        if (!list.length) asec.appendChild(el("div", "gb-empty", "Boş — otomasyon satırındaki 📁 ile buraya taşı."));
+        if (!list.length) asec.appendChild(elh("div", "gb-empty", "Boş — otomasyon satırındaki 📁 ile buraya taşı."));
         wrap.appendChild(asec);
       };
       bolum("Genel Otomasyonlar", rc.autos.filter((a) => !catById(a.cat)), null);
@@ -1386,7 +1397,7 @@ class DialTapPanel extends HTMLElement {
 
     const head = el("div", "stage-h");
     head.appendChild(el("div", "room-title", v.name));
-    head.appendChild(el("div", "room-meta", "İzleme odası · panele özel (HA area değil)"));
+    head.appendChild(elh("div", "room-meta", "İzleme odası · panele özel (HA area değil)"));
     const ren = el("button", "addsec");
     ren.style.marginLeft = "auto";
     ren.appendChild(icon("mdi:pencil-outline"));
@@ -1418,7 +1429,7 @@ class DialTapPanel extends HTMLElement {
     box.appendChild(el("div", "gb-sub", "Eklediğin cihazların/sensörlerin canlı durumu burada görünür. HA odalarına (area) dokunulmaz. Aşağıya yazarsan bu cihazlarla otomasyon kurulur."));
     const grid = el("div", "vmon");
     if (!v.ents.filter((e) => this._hass.states[e]).length)
-      grid.appendChild(el("div", "gb-empty", "Henüz cihaz eklenmedi — aşağıdan ekle."));
+      grid.appendChild(elh("div", "gb-empty", "Henüz cihaz eklenmedi — aşağıdan ekle."));
     for (const eid of v.ents) {
       const info = this._stateInfo(eid);
       const c = el("div", "vcard" + (info.pulse ? " pulse" : info.on ? " on" : ""));
@@ -1650,7 +1661,7 @@ class DialTapPanel extends HTMLElement {
 
     const head = el("div", "stage-h");
     head.appendChild(el("div", "room-title", room.name));
-    head.appendChild(el("div", "room-meta", meta));
+    head.appendChild(elh("div", "room-meta", meta));
     const ref = el("button", "addsec");
     ref.style.marginLeft = "auto";
     ref.title = "Cihaz listesini yenile (yeni eklenenler gelsin)";
@@ -1761,7 +1772,7 @@ class DialTapPanel extends HTMLElement {
       if (this._hass.states[eid] || this._hass.entities[eid]) flow.appendChild(this._devEl(room, eid, rc));
     }
     if (!(s.entities || []).length)
-      sec.appendChild(el("div", "empty", "Boş bölüm — aşağıdaki cihazı <b>sürükleyip buraya bırak</b> (ya da chip'teki klasör ikonuyla taşı)."));
+      sec.appendChild(elh("div", "empty", "Boş bölüm — aşağıdaki cihazı <b>sürükleyip buraya bırak</b> (ya da chip'teki klasör ikonuyla taşı)."));
     sec.appendChild(flow);
     this._dropTarget(sec, room, rc, s);
     return sec;
@@ -2059,7 +2070,7 @@ class DialTapPanel extends HTMLElement {
     if (!row) return;
     row.innerHTML = "";
     if (!this._sel.size) {
-      row.appendChild(el("span", "cmp-hint", "İpucu: cihaza dokun → <b>mor</b> seçilir."));
+      row.appendChild(elh("span", "cmp-hint", "İpucu: cihaza dokun → <b>mor</b> seçilir."));
       return;
     }
     for (const eid of this._sel) {
@@ -2078,17 +2089,17 @@ class DialTapPanel extends HTMLElement {
 
   _autoSummary(a) {
     if (a.freeform) return "✦ " + (esc(a.summary) || esc(this._haAutoName(a) || a.name)) + ` <i>(${this._L("serbest mod", "free mode")})</i>`;
-    const names = (ids) => ids.map((e) => `<b>${this._name(e)}</b>`).join(", ");
+    const names = (ids) => ids.map((e) => `<b>${esc(this._name(e))}</b>`).join(", ");
     let s = `${names(a.on)} algılayınca → ${names(a.lights)} <i>aç</i>`;
     if (a.off) {
       const offL = (a.off_lights && a.off_lights.length) ? ` ${names(a.off_lights)}` : "";
-      s += ` · <b>${this._name(a.off)}</b> ${this._fmtDur(a.delay)} boş kalınca${offL} <i>kapat</i>`;
+      s += ` · <b>${esc(this._name(a.off))}</b> ${this._fmtDur(a.delay)} boş kalınca${offL} <i>kapat</i>`;
     }
     if (a.cond === "lux") s += ` · sadece karanlıkken (&lt;${a.lux_below} lx)`;
     if (a.cond === "sun") s += " · sadece güneş battıktan sonra";
     if (a.cond === "time") s += ` · sadece ${a.after}–${a.before}`;
     if (a.guard && a.guard.entity)
-      s += ` · <b>${this._name(a.guard.entity)}</b> ${(a.guard.blocked || []).join("/")} iken <i>açılmaz</i>`;
+      s += ` · <b>${esc(this._name(a.guard.entity))}</b> ${esc((a.guard.blocked || []).join("/"))} iken <i>açılmaz</i>`;
     return s;
   }
 
@@ -2122,7 +2133,7 @@ class DialTapPanel extends HTMLElement {
     b.style.cursor = "pointer";
     b.title = asel ? "Seçimi kaldır" : "Seç";
     b.appendChild(el("div", "auto-n", this._haAutoName(a) || a.name));
-    b.appendChild(el("div", "auto-s", asel ? "✓ seçildi" : this._autoSummary(a)));
+    b.appendChild(elh("div", "auto-s", asel ? "✓ seçildi" : this._autoSummary(a)));
     b.onclick = () => {
       if (this._sel.has(aeid)) this._sel.delete(aeid); else this._sel.add(aeid);
       this._renderStage();
@@ -2319,10 +2330,43 @@ class DialTapPanel extends HTMLElement {
   }
   _dtRemoveManual(d) {
     if (!Array.isArray(this._cfg.manual_devices)) return;
+    if (!confirm(this._L(`“${d.name}” cihazını Presto'dan kaldır?`,
+                         `Remove “${d.name}” from Presto?`))) return;
+    // Cihaz gidince onun ürettiği HA otomasyonları öksüz kalır ve panelde temizlenecek
+    // ekran da kalmaz — o yüzden birlikte silmeyi teklif et (geri alınamaz → onay).
+    const delAutos = confirm(this._L(
+      "Bu cihazın HA'da KURULU otomasyonları da silinsin mi?\n\n" +
+      "Tamam: cihaz + tüm otomasyonları sil.\n" +
+      "İptal: sadece Presto listesinden çıkar (otomasyonlar HA'da çalışmaya devam eder).",
+      "Also delete this device's INSTALLED HA automations?\n\n" +
+      "OK: remove the device and all its automations.\n" +
+      "Cancel: only remove it from the Presto list (automations keep running in HA)."));
+
+    const roomId = "__dt_" + d.key;
+    if (delAutos) {
+      const rc = this._cfg.rooms && this._cfg.rooms[roomId];
+      if (rc && Array.isArray(rc.autos)) for (const a of rc.autos) this._removeAutoHA(a);
+      this._dtPurgeAutos(d.key);
+    }
     this._cfg.manual_devices = this._cfg.manual_devices.filter((m) => (m.key || ("man:" + m.device_id)) !== d.key && m.device_id !== d.device_id);
     if (this._cfg.devices) delete this._cfg.devices[d.key];
-    if (this._room === "__dt_" + d.key) this._room = null;
+    if (this._cfg.rooms) delete this._cfg.rooms[roomId];
+    if (this._room === roomId) this._room = null;
     this._save(); this._renderRail(); this._renderStage();
+  }
+
+  /* Bir cihazın Presto'nun ürettiği tüm HA otomasyonlarını sil (id öneki dt_<slug>_). */
+  async _dtPurgeAutos(key) {
+    if (!this._hass) return;
+    const pre = "oto_dt_" + _dtSlug(key) + "_";
+    const ids = Object.keys(this._hass.states)
+      .filter((e) => e.startsWith("automation."))
+      .map((e) => (this._hass.states[e].attributes || {}).id)
+      .filter((id) => id && id.startsWith(pre));
+    for (const id of ids) {
+      try { await this._hass.callApi("DELETE", "config/automation/config/" + id); }
+      catch (e) { /* HA'da yoksa sessiz geç */ }
+    }
   }
   async _dtManualAdd() {
     const h = this._hass; if (!h) return;
@@ -2330,8 +2374,8 @@ class DialTapPanel extends HTMLElement {
     const opts = Object.keys(devices).map((id) => ({ id, name: (devices[id].name_by_user || devices[id].name || id) })).filter((o) => o.name).sort((a, b) => a.name.localeCompare(b.name, "tr"));
     const ov = el("div"); ov.style.cssText = "position:fixed;inset:0;z-index:99999;background:rgba(3,4,10,.72);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:20px;font-family:'Inter',system-ui,sans-serif;";
     const box = el("div"); box.style.cssText = "width:100%;max-width:460px;background:#16121c;border:1px solid rgba(255,255,255,.1);border-radius:18px;padding:20px;color:#f0e9f2;box-shadow:0 30px 80px rgba(0,0,0,.6);";
-    box.appendChild(el("div", null, "<b style='font-size:18px'>Manuel cihaz ekle</b>"));
-    box.appendChild(el("div", null, "<div style='color:#9a90a0;font-size:13px;margin:6px 0 14px;line-height:1.5'>Otomatik bulunamayan bir düğme (Hue Dimmer, Ikea, Aqara…) ekle. Cihazı seç → panel HA'daki <b>gerçek tetiklerini</b> çekip tuşlara otomatik eşler.</div>"));
+    box.appendChild(elh("div", null, "<b style='font-size:18px'>Manuel cihaz ekle</b>"));
+    box.appendChild(elh("div", null, "<div style='color:#9a90a0;font-size:13px;margin:6px 0 14px;line-height:1.5'>Otomatik bulunamayan bir düğme (Hue Dimmer, Ikea, Aqara…) ekle. Cihazı seç → panel HA'daki <b>gerçek tetiklerini</b> çekip tuşlara otomatik eşler.</div>"));
     const sel = document.createElement("select"); sel.style.cssText = "width:100%;padding:11px;border-radius:10px;background:#0e0b12;border:1px solid rgba(255,255,255,.14);color:#fff;font:inherit;font-size:14px;margin-bottom:12px;";
     const ph = document.createElement("option"); ph.value = ""; ph.textContent = "— Cihaz seç —"; sel.appendChild(ph);
     opts.forEach((o) => { const op = document.createElement("option"); op.value = o.id; op.textContent = o.name; sel.appendChild(op); });
@@ -2563,7 +2607,7 @@ class DialTapPanel extends HTMLElement {
     head.appendChild(el("div", "room-title", dev.name));
     const bat = dev.battery && this._hass.states[dev.battery]
       ? ` · ${this._L("pil", "battery")} <b>${this._L("%" + this._hass.states[dev.battery].state, this._hass.states[dev.battery].state + "%")}</b>` : "";
-    head.appendChild(el("div", "room-meta",
+    head.appendChild(elh("div", "room-meta",
       `${dev.path === "hue" ? "Hue Bridge" : "Zigbee2MQTT"}${bat}${aktif ? ` · ${this._L("aktif mod", "active mode")} <b>${esc(aktif)}</b>` : ""}`));
     const yed = el("button", "addsec");
     yed.style.marginLeft = "auto";
@@ -2676,7 +2720,7 @@ class DialTapPanel extends HTMLElement {
       eb.appendChild(eh);
       for (const s of this._dtErrors) {
         const r = el("div", "dt-errrow" + (s.git ? " go" : ""));
-        r.appendChild(el("b", null, esc(s.yer)));
+        r.appendChild(el("b", null, s.yer));
         r.appendChild(el("span", null, " — " + s.mesaj));
         if (s.git) {
           r.appendChild(el("span", "dt-errgo", "düzelt →"));
@@ -2711,7 +2755,7 @@ class DialTapPanel extends HTMLElement {
     left.appendChild(mh);
 
     if (!dc.modes.length)
-      left.appendChild(el("div", "gb-empty", "Henüz mod yok. “+ Mod” ile başla — ör. “Işıklar”."));
+      left.appendChild(elh("div", "gb-empty", "Henüz mod yok. “+ Mod” ile başla — ör. “Işıklar”."));
 
     dc.modes.forEach((m, i) => {
       const row = el("div", "dt-mode" + (mode && m.id === mode.id ? " on" : ""));
@@ -2761,12 +2805,12 @@ class DialTapPanel extends HTMLElement {
       left.appendChild(tgl);
       if (acik) {
         const kutu = el("div", "dt-advbox");
-        kutu.appendChild(el("div", "dt-note",
+        kutu.appendChild(elh("div", "dt-note",
           "Mod değiştirmek için istediğin tuşa <b>“Mod değiştir”</b> ata — tek, uzun ya da çift bas, sen seç. " +
           "<b>Bir kez tanımlaman yeterli: her modda çalışır</b> (⟳ işaretli görünür). " +
           "Geçince 4 tuş ve dial komple diğer modun düzenine döner."));
         kutu.appendChild(this._dtIndicatorEl(dc));
-        kutu.appendChild(el("div", "dt-note",
+        kutu.appendChild(elh("div", "dt-note",
           modeEnt ? `Mod durumu: <code>${esc(modeEnt)}</code> — entegrasyonun kendi entity'si, helper yok.`
                   : "Mod entity'si otomasyonları kurunca oluşur."));
         left.appendChild(kutu);
@@ -2797,7 +2841,7 @@ class DialTapPanel extends HTMLElement {
       ah.appendChild(el("span", "sec-name", "HA'da Çalışan Otomasyonlar"));
       ah.appendChild(el("span", "sec-count", String(rc.autos.length)));
       asec.appendChild(ah);
-      asec.appendChild(el("div", "gb-empty", this._L(
+      asec.appendChild(elh("div", "gb-empty", this._L(
         "Bunlar şu an HA'da <b>canlı</b> — panel kapalıyken de çalışırlar. " +
         "Panelde yaptığın değişiklik ancak <b>Otomasyonları Kur</b>'a basınca buraya yansır.",
         "These are <b>live</b> in HA now — they run even when the panel is closed. " +
@@ -2806,7 +2850,7 @@ class DialTapPanel extends HTMLElement {
       for (const a of rc.autos) asec.appendChild(this._autoRow(room, a, rc));
       wrap.appendChild(asec);
     } else {
-      wrap.appendChild(el("div", "gb-empty", this._L(
+      wrap.appendChild(elh("div", "gb-empty", this._L(
         "Henüz otomasyon kurulmadı. Tuşları atadıktan sonra üstteki <b>Otomasyonları Kur</b>'a bas.",
         "No automations installed yet. After assigning buttons, press <b>Install Automations</b> above.")));
     }
@@ -2839,7 +2883,7 @@ class DialTapPanel extends HTMLElement {
     const ind = dc.indicator;
     const box = el("div", "dt-sw");
     box.appendChild(el("div", "dt-lbl", "MOD GÖSTERGESİ"));
-    box.appendChild(el("div", "dt-note",
+    box.appendChild(elh("div", "dt-note",
       "Mod değişince hangi moda geçtiğini ışıkla anla. İsteğe bağlı."));
 
     const opts = [
@@ -2858,7 +2902,7 @@ class DialTapPanel extends HTMLElement {
     if (ind.kind && ind.kind !== "none") {
       box.appendChild(this._dtField("Varsayılan gösterge ışığı",
         this._dtEntPicker(ind, "entity", "light", false)));
-      box.appendChild(el("div", "dt-note",
+      box.appendChild(elh("div", "dt-note",
         "Bu ışık, kendi ışığı seçilmemiş modlar için kullanılır. " +
         "Aşağıda <b>her moda ayrı ışık</b> verebilirsin."));
       if (ind.kind === "flash") {
@@ -2879,7 +2923,7 @@ class DialTapPanel extends HTMLElement {
           num(ind.secs != null ? ind.secs : DT_BLINK_SECS, "0.1", 0.1, 5, "sn", (v) => { ind.secs = v; })));
         box.appendChild(row);
         const kez = ind.times || DT_BLINK_TIMES, sn = ind.secs != null ? ind.secs : DT_BLINK_SECS;
-        box.appendChild(el("div", "dt-note",
+        box.appendChild(elh("div", "dt-note",
           `Toplam ${(kez * sn * 2).toFixed(1)} sn sürer (${kez} kez yanıp sönme).`));
       }
       // her modun rengi
@@ -2896,7 +2940,7 @@ class DialTapPanel extends HTMLElement {
         ci.oninput = () => { m.color = ci.value; this._save(); };
         r.appendChild(ci);
         // ad zaten "Mod 2" ise "Mod 2 · Mod 2" yazmayalım
-        const ad = /^mod\s*\d+$/i.test(m.name) ? esc(m.name) : `Mod ${i + 1} · ${esc(m.name)}`;
+        const ad = /^mod\s*\d+$/i.test(m.name) ? m.name : `Mod ${i + 1} · ${m.name}`;
         r.appendChild(el("span", "dt-colname", ad));
         blok.appendChild(r);
         const isikSatiri = el("div", "dt-modisik");
@@ -2908,7 +2952,7 @@ class DialTapPanel extends HTMLElement {
       });
       box.appendChild(this._dtField("Her mod için renk ve ışık", cw));
       if (ind.kind === "flash")
-        box.appendChild(el("div", "dt-note",
+        box.appendChild(elh("div", "dt-note",
           "Işığın o anki hali kaydedilir, yanıp söndükten sonra <b>aynen geri yüklenir</b> — " +
           "kapalıysa kapanır, açıksa eski rengine döner."));
     }
@@ -3106,7 +3150,7 @@ class DialTapPanel extends HTMLElement {
     const box = el("div", "dt-insp");
     const slot = this._dtSlot;
     if (!slot) {
-      box.appendChild(el("div", "gb-empty", dev.type === "dimmer"
+      box.appendChild(elh("div", "gb-empty", dev.type === "dimmer"
         ? "Yukarıdan bir tuşa dokun — ne yapacağını burada seçersin."
         : "Yukarıdan bir tuşa ya da ortadaki dial'a dokun — ne yapacağını burada seçersin."));
       return box;
@@ -3125,7 +3169,7 @@ class DialTapPanel extends HTMLElement {
         box.appendChild(this._dtField("Hedef cihaz",
           this._dtEntPicker(d, "entities", def.domain, true, def.filtre)));
         if (def.filtre === "ses")
-          box.appendChild(el("div", "dt-note",
+          box.appendChild(elh("div", "dt-note",
             "Listede <b>sadece sesi değiştirilebilen</b> cihazlar var — HA'daki tüm medya " +
             "oynatıcıları tarandı. Echo/Alexa gibi adım desteklemeyen cihazlarda ses seviyesi " +
             "doğrudan hesaplanıp yazılır, panel farkı senin için hallediyor."));
@@ -3143,7 +3187,7 @@ class DialTapPanel extends HTMLElement {
           seg.appendChild(mk(false, "Hepsini etkile (kapalıları da açar)",
             "Grubun tamamını hedefler, kapalı olanlar yanar"));
           box.appendChild(this._dtField("Hangi ışıklar", seg));
-          box.appendChild(el("div", "dt-note", d.sadeceAcik !== false
+          box.appendChild(elh("div", "dt-note", d.sadeceAcik !== false
             ? "Işık grubu seçtiysen grup <b>üyelerine kadar açılır</b> ve sadece o an yanan ışıklar kısılır. Hiçbiri açık değilse dial bir şey yapmaz."
             : "Dikkat: kapalı ışıklar da <b>yanar</b>."));
         }
@@ -3155,7 +3199,7 @@ class DialTapPanel extends HTMLElement {
         row.appendChild(this._dtField("Hızlı çevirme adımı",
           this._dtNumber(d.fast, def.unit, (v) => { d.fast = v; this._save(); })));
         box.appendChild(row);
-        box.appendChild(el("div", "dt-note", dev.path === "hue"
+        box.appendChild(elh("div", "dt-note", dev.path === "hue"
           ? "Hue Bridge hız bilgisini <code>steps</code> olarak verir; panel 30 adımın üstünü “hızlı” sayar."
           : "Tap Dial hızlı/yavaş çevirmeyi kendi ayırt eder — z2m ayrı sinyal gönderir."));
       }
@@ -3191,7 +3235,7 @@ class DialTapPanel extends HTMLElement {
       const buradaki = mode.btns[this._dtTrig];
       if (g && g.modeId !== mode.id && !(buradaki && buradaki.kind && buradaki.kind !== "none")) {
         const sahibi = dc.modes.find((m) => m.id === g.modeId);
-        box.appendChild(el("div", "dt-note",
+        box.appendChild(elh("div", "dt-note",
           `⟳ Bu tuşta <b>Mod değiştir</b> zaten tanımlı (${esc((sahibi || {}).name || "diğer mod")} içinde) — ` +
           "geçiş tuşu <b>her modda çalışır</b>, buraya tekrar atamana gerek yok."));
       }
@@ -3199,7 +3243,7 @@ class DialTapPanel extends HTMLElement {
     if (this._dtTrig.endsWith("_double")) {
       const dblAct = (mode.btns[this._dtTrig] = mode.btns[this._dtTrig] || { kind: "none" });
       const win = dblAct.win || DT_DBL_WIN;
-      box.appendChild(el("div", "dt-warn",
+      box.appendChild(elh("div", "dt-warn",
         "⚠ Tap Dial donanımı çift basmayı <b>üretmez</b> — panel bunu otomasyonun içinde bekleyerek taklit eder " +
         `(yardımcı/helper kurulmaz). Bedeli: bu tuşta <b>tek basma ${win} ms gecikir</b>. İstemiyorsan boş bırak.`));
       const wbox = el("div", "dt-num");
@@ -3213,7 +3257,7 @@ class DialTapPanel extends HTMLElement {
       wbox.appendChild(wi);
       wbox.appendChild(el("span", "dt-unit", "ms"));
       box.appendChild(this._dtField("Çift bas penceresi", wbox));
-      box.appendChild(el("div", "dt-note",
+      box.appendChild(elh("div", "dt-note",
         "İki basış arası bu süreden UZUN olursa sistem bunu <b>iki ayrı tek basış</b> sayar. " +
         "Çift basman algılanmıyorsa süreyi artır (600-700 ms); tek basma çok gecikiyorsa azalt."));
     }
@@ -3380,11 +3424,11 @@ class DialTapPanel extends HTMLElement {
         if (da) return da;
         return a.id.localeCompare(b.id);
       });
-      if (!hits.length) { list.appendChild(el("div", "gb-empty", "Eşleşen servis yok.")); return; }
+      if (!hits.length) { list.appendChild(elh("div", "gb-empty", "Eşleşen servis yok.")); return; }
       for (const s of hits.slice(0, 60)) {
         const r = el("div", "dt-svcrow" + (s.id === act.service ? " on" : ""));
-        r.appendChild(el("div", "dt-svcid", esc(s.id)));
-        r.appendChild(el("div", "dt-svcn", esc(s.name)));
+        r.appendChild(el("div", "dt-svcid", s.id));
+        r.appendChild(el("div", "dt-svcn", s.name));
         if (tercih && s.dom === tercih) r.appendChild(el("span", "dt-svctag", "hedefe uygun"));
         r.onclick = () => {
           act.service = s.id;
@@ -3481,7 +3525,7 @@ class DialTapPanel extends HTMLElement {
       .filter((e) => doms.includes(e.split(".")[0]) && uygun(e))
       .sort((a, b) => this._name(a).localeCompare(this._name(b), "tr"));
     if (filtre === "ses")
-      pop.insertBefore(el("div", "dt-note",
+      pop.insertBefore(elh("div", "dt-note",
         `Sesi değiştirilebilen <b>${all.length}</b> cihaz bulundu.`), list);
 
     const render = () => {
@@ -3500,7 +3544,7 @@ class DialTapPanel extends HTMLElement {
         r.onclick = () => { this._closePop(); onPick(eid); };
         list.appendChild(r);
       }
-      if (!n) list.appendChild(el("div", "gb-empty", "Eşleşen cihaz yok."));
+      if (!n) list.appendChild(elh("div", "gb-empty", "Eşleşen cihaz yok."));
     };
     inp.oninput = render;
     render();
@@ -3526,7 +3570,7 @@ class DialTapPanel extends HTMLElement {
     this._closePop();
     const pop = el("div", "pop dt-test dt-bpop");
     pop.appendChild(el("div", "dt-ih", "Yedekler"));
-    pop.appendChild(el("div", "dt-note",
+    pop.appendChild(elh("div", "dt-note",
       "Tüm Presto ayarlarının (cihazlar, modlar, tuşlar) anlık kopyası. " +
       "Bir yedeği geri yüklersen her şey o ana döner. En yeni 30 yedek tutulur."));
 
@@ -3595,11 +3639,11 @@ class DialTapPanel extends HTMLElement {
     };
     const ciz = (items) => {
       list.innerHTML = "";
-      if (!items || !items.length) { list.appendChild(el("div", "gb-empty", "Henüz yedek yok.")); return; }
+      if (!items || !items.length) { list.appendChild(elh("div", "gb-empty", "Henüz yedek yok.")); return; }
       for (const s of items) {
         const r = el("div", "dt-brow2");
         const t = el("div", "dt-binfo");
-        t.appendChild(el("div", "dt-bt", fmt(s.ts) + (s.note ? " · " + esc(s.note) : "")));
+        t.appendChild(el("div", "dt-bt", fmt(s.ts) + (s.note ? " · " + s.note : "")));
         t.appendChild(el("div", "dt-bs", `${s.devices} cihaz`));
         r.appendChild(t);
         const geri = el("button", "dt-mini");
@@ -3659,16 +3703,16 @@ class DialTapPanel extends HTMLElement {
     this._popCloser = () => pop.remove();
 
     try { ciz((await this._hass.callApi("GET", "dial_tap/backups")).items); }
-    catch (e) { list.appendChild(el("div", "gb-empty", "Yedekler okunamadı.")); }
+    catch (e) { list.appendChild(elh("div", "gb-empty", "Yedekler okunamadı.")); }
   }
 
   _dtTest(dev) {
     this._closePop();
     const pop = el("div", "pop dt-test");
     pop.appendChild(el("div", "dt-ih", "Tuş Testi"));
-    pop.appendChild(el("div", "dt-note", "Cihazdaki tuşlara bas / dial'ı çevir — gelen sinyal burada görünür."));
+    pop.appendChild(elh("div", "dt-note", "Cihazdaki tuşlara bas / dial'ı çevir — gelen sinyal burada görünür."));
     const log = el("div", "dt-log");
-    log.appendChild(el("div", "gb-empty", "Bekleniyor…"));
+    log.appendChild(elh("div", "gb-empty", "Bekleniyor…"));
     pop.appendChild(log);
 
     // ÖNEMLİ: tuş basışları HA'da entity DEĞİL — z2m onları sadece MQTT device
@@ -3688,7 +3732,7 @@ class DialTapPanel extends HTMLElement {
     let first = true;
     const yaz = (etiket) => {
       if (first) { log.innerHTML = ""; first = false; }
-      const row = el("div", "dt-logrow", esc(etiket));
+      const row = el("div", "dt-logrow", etiket);
       log.insertBefore(row, log.firstChild);
       while (log.childElementCount > 12) log.removeChild(log.lastChild);
     };
@@ -3703,7 +3747,7 @@ class DialTapPanel extends HTMLElement {
     ).then((u) => { unsub = u; })
      .catch((err) => {
        log.innerHTML = "";
-       log.appendChild(el("div", "gb-empty",
+       log.appendChild(elh("div", "gb-empty",
          "Dinleme başlatılamadı: " + esc(this._dtErrText(err))));
      });
 
@@ -3749,8 +3793,10 @@ class DialTapPanel extends HTMLElement {
       return t;
     }
     if (dev.path === "hue") {
-      const t = { trigger: "state", entity_id: dev.buttons[n], attribute: "event_type",
-        to: kind === "hold" ? "long_press" : "short_release" };
+      // event entity: her basış ANA state'i (zaman damgası) değiştirir → aynı tuşa arka
+      // arkaya basış da yakalanır. press/hold ayrımı çağıran tarafça event_type KOŞULUYLA
+      // yapılır — 'attribute'+'to:' kullanmayız (aynı değere değişmeyince tekrarı kaçırırdı).
+      const t = { trigger: "state", entity_id: dev.buttons[n] };
       if (id) t.id = id;
       return t;
     }
@@ -3762,16 +3808,19 @@ class DialTapPanel extends HTMLElement {
 
   _dtDialTriggers(dev) {
     if (dev.path === "hue") {
-      return [
-        { trigger: "state", entity_id: dev.dialEntity, attribute: "event_type", to: "clock_wise", id: "cw" },
-        { trigger: "state", entity_id: dev.dialEntity, attribute: "event_type", to: "counter_clock_wise", id: "ccw" },
-      ];
+      // Hue rotary bir 'event' entity: ANA state (zaman damgası) HER dönüşte değişir.
+      // Eskiden attribute event_type'a 'to: clock_wise' ile bağlıydı — ama aynı yönde
+      // arka arkaya çevirince attribute değeri değişmediği için 2., 3. dönüş KAÇIYORDU.
+      // Çözüm: tek trigger, state (timestamp) değişimini yakala; yönü branch KOŞULUNDA ayır.
+      return [{ trigger: "state", entity_id: dev.dialEntity, id: "hue" }];
     }
     const mk = (sub, id) => ({ trigger: "device", domain: "mqtt", device_id: dev.device_id,
       type: "action", subtype: sub, id });
+    // "_step" = yavaş çevirmenin İLK kademesi (z2m ilk mesajı step, sonrakiler slow/fast).
+    // step'i slow ile aynı id'ye bağla ki ilk küçük dönüş de kaybolmasın.
     return [
-      mk("dial_rotate_right_slow", "cw_s"), mk("dial_rotate_right_fast", "cw_f"),
-      mk("dial_rotate_left_slow", "ccw_s"), mk("dial_rotate_left_fast", "ccw_f"),
+      mk("dial_rotate_right_step", "cw_s"), mk("dial_rotate_right_slow", "cw_s"), mk("dial_rotate_right_fast", "cw_f"),
+      mk("dial_rotate_left_step", "ccw_s"), mk("dial_rotate_left_slow", "ccw_s"), mk("dial_rotate_left_fast", "ccw_f"),
     ];
   }
 
@@ -3918,6 +3967,13 @@ class DialTapPanel extends HTMLElement {
     const branches = [];
     let hasDouble = false;
 
+    const hue = dev.path === "hue";
+    // Hue: tek 'event' entity (buttons[n]) hem kısa hem uzun basışı verir → tuş başına TEK
+    // trigger; press/hold ayrımını event_type KOŞULUYLA yaparız. z2m'de ayrı device
+    // trigger'lar kullanılır (değişmedi). evc() z2m'de boş dizi döner → koşul eklenmez.
+    const evc = (v) => hue ? [{ condition: "template",
+      value_template: `{{ trigger.to_state.attributes.event_type == '${v}' }}` }] : [];
+
     for (let n = 1; n <= 4; n++) {
       const slot = "b" + n;
       const single = mode.btns[slot];
@@ -3930,12 +3986,18 @@ class DialTapPanel extends HTMLElement {
       const dAct = gec(dbl) ? [] : this._dtActions(dbl, modeEnt);
       const hAct = gec(hold) ? [] : this._dtActions(hold, modeEnt);
 
+      // Hue'da press ve hold aynı entity'den gelir → trigger'ı tuş başına bir kez ekle.
+      let pushed = false;
+      const ensureTrig = () => {
+        if (!pushed) { triggers.push(this._dtBtnTrigger(dev, n, "single", slot)); pushed = true; }
+      };
+
       if (sAct.length || dAct.length) {
-        triggers.push(this._dtBtnTrigger(dev, n, "single", slot));
+        ensureTrig();
         if (dAct.length) {
           hasDouble = true;
           branches.push({
-            conditions: [{ condition: "trigger", id: slot }],
+            conditions: [{ condition: "trigger", id: slot }, ...evc("short_release")],
             sequence: [
               { wait_for_trigger: [this._dtBtnTrigger(dev, n, "single", null)],
                 timeout: { milliseconds: (dbl && dbl.win) || DT_DBL_WIN }, continue_on_timeout: true },
@@ -3944,12 +4006,17 @@ class DialTapPanel extends HTMLElement {
             ],
           });
         } else {
-          branches.push({ conditions: [{ condition: "trigger", id: slot }], sequence: sAct });
+          branches.push({ conditions: [{ condition: "trigger", id: slot }, ...evc("short_release")], sequence: sAct });
         }
       }
       if (hAct.length) {
-        triggers.push(this._dtBtnTrigger(dev, n, "hold", slot + "h"));
-        branches.push({ conditions: [{ condition: "trigger", id: slot + "h" }], sequence: hAct });
+        if (hue) {
+          ensureTrig();
+          branches.push({ conditions: [{ condition: "trigger", id: slot }, ...evc("long_press")], sequence: hAct });
+        } else {
+          triggers.push(this._dtBtnTrigger(dev, n, "hold", slot + "h"));
+          branches.push({ conditions: [{ condition: "trigger", id: slot + "h" }], sequence: hAct });
+        }
       }
     }
     if (!triggers.length) return null;
@@ -3983,13 +4050,16 @@ class DialTapPanel extends HTMLElement {
 
     let branches;
     if (dev.path === "hue") {
+      // Yön 'to:' ile değil, event_type attribute'una bakan koşulla ayrılır (tekrarı kaçırmamak için).
+      const yon = (v) => ({ condition: "template",
+        value_template: `{{ trigger.to_state.attributes.event_type == '${v}' }}` });
       const hizli = { condition: "template",
         value_template: "{{ (trigger.to_state.attributes.steps | int(0)) > 30 }}" };
       branches = [
-        { conditions: [{ condition: "trigger", id: "cw" }, hizli], sequence: this._dtDialAction(d, fast, volEnt) },
-        { conditions: [{ condition: "trigger", id: "cw" }], sequence: this._dtDialAction(d, slow, volEnt) },
-        { conditions: [{ condition: "trigger", id: "ccw" }, hizli], sequence: this._dtDialAction(d, -fast, volEnt) },
-        { conditions: [{ condition: "trigger", id: "ccw" }], sequence: this._dtDialAction(d, -slow, volEnt) },
+        { conditions: [yon("clock_wise"), hizli], sequence: this._dtDialAction(d, fast, volEnt) },
+        { conditions: [yon("clock_wise")], sequence: this._dtDialAction(d, slow, volEnt) },
+        { conditions: [yon("counter_clock_wise"), hizli], sequence: this._dtDialAction(d, -fast, volEnt) },
+        { conditions: [yon("counter_clock_wise")], sequence: this._dtDialAction(d, -slow, volEnt) },
       ];
     } else {
       branches = [
@@ -4735,7 +4805,7 @@ class DialTapPanel extends HTMLElement {
     picker(lights, (e) => d.off_lights.includes(e),
       (e) => { d.off_lights = d.off_lights.includes(e) ? d.off_lights.filter((x) => x !== e) : [...d.off_lights, e]; },
       "Bu odada ışık/anahtar yok.");
-    ed.appendChild(el("div", "ed-hint", "Örn: varlıkta sadece <b>Ark Zone</b> açılsın ama boşalınca <b>ofis komple</b> kapansın — buraya kapanacakları seç."));
+    ed.appendChild(elh("div", "ed-hint", "Örn: varlıkta sadece <b>Ark Zone</b> açılsın ama boşalınca <b>ofis komple</b> kapansın — buraya kapanacakları seç."));
 
     label("Şart", "mdi:filter-outline");
     const condPicks = el("div", "picks");

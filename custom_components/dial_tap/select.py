@@ -131,11 +131,17 @@ class DialTapModeSelect(SelectEntity, RestoreEntity):
 
     @callback
     def update_from_config(self, device: dict, options: list[str]) -> None:
-        """Panel modları değiştirdiğinde seçenekleri tazele."""
-        self.device_name = str(device.get("name") or self.device_name)
+        """Panel modları/cihaz adı değiştiğinde tazele."""
+        new_name = str(device.get("name") or self.device_name)
+        name_changed = new_name != self.device_name
+        self.device_name = new_name
         self._attr_name = f"{self.device_name} Mod"
         new_options = list(options) or [FALLBACK_OPTION]
         if new_options == self._attr_options:
+            # Seçenekler aynı ama SADECE ad değişmiş olabilir — o zaman da state yaz,
+            # yoksa yeni ad canlıya yansımaz.
+            if name_changed and self.hass is not None:
+                self.async_write_ha_state()
             return
         self._attr_options = new_options
         # Seçili mod silindiyse ilk moda düş — aksi halde entity geçersiz duruma girer.
